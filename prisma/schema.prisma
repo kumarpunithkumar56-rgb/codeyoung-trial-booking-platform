@@ -1,0 +1,190 @@
+// Prisma schema for Codeyoung Trial Booking Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  PARENT
+  MENTOR
+  ADMIN
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  BOOKING_REMINDER
+  PASSWORD_RESET
+}
+
+// Core Models
+
+model User {
+  id                String          @id @default(uuid())
+  email             String          @unique
+  passwordHash      String
+  role              UserRole
+  timezone          String          // IANA timezone identifier
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  // Password reset
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  
+  // Relations
+  parentProfile     ParentProfile?
+  mentorProfile     MentorProfile?
+  notifications     Notification[]
+  
+  @@index([email])
+}
+
+model ParentProfile {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  firstName         String
+  lastName          String
+  phoneNumber       String?
+  
+  // Relations
+  bookings          Booking[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model MentorProfile {
+  id                String              @id @default(uuid())
+  userId            String              @unique
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  firstName         String
+  lastName          String
+  bio               String?
+  photoUrl          String?
+  active            Boolean             @default(true)
+  
+  // Relations
+  availability      MentorAvailability[]
+  bookings          Booking[]
+  mentorCourses     MentorCourse[]
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@index([active])
+}
+
+model Course {
+  id                String          @id @default(uuid())
+  name              String          @unique
+  description       String?
+  durationMinutes   Int             @default(45)
+  
+  // Relations
+  mentorCourses     MentorCourse[]
+  bookings          Booking[]
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model MentorCourse {
+  id                String        @id @default(uuid())
+  mentorId          String
+  mentor            MentorProfile @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  courseId          String
+  course            Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime      @default(now())
+  
+  @@unique([mentorId, courseId])
+  @@index([mentorId])
+  @@index([courseId])
+}
+
+model MentorAvailability {
+  id                String        @id @default(uuid())
+  mentorId          String
+  mentor            MentorProfile @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  
+  dayOfWeek         Int           // 1 = Monday, 7 = Sunday
+  startTime         String        // Format: "09:00"
+  endTime           String        // Format: "17:00"
+  timezone          String        // IANA timezone identifier
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  @@index([mentorId, dayOfWeek])
+}
+
+model Booking {
+  id                String        @id @default(uuid())
+  
+  // Participants
+  parentId          String
+  parent            ParentProfile @relation(fields: [parentId], references: [id], onDelete: Restrict)
+  mentorId          String
+  mentor            MentorProfile @relation(fields: [mentorId], references: [id], onDelete: Restrict)
+  courseId          String
+  course            Course        @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  
+  // Child information
+  childName         String
+  childAge          Int
+  childGrade        String
+  
+  // Timing (stored in UTC)
+  startTimeUtc      DateTime
+  endTimeUtc        DateTime
+  
+  // Timezone information for display
+  parentTimezone    String        // IANA timezone
+  mentorTimezone    String        // IANA timezone
+  
+  // Booking details
+  status            BookingStatus @default(CONFIRMED)
+  meetingUrl        String
+  
+  // Metadata
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  cancelledAt       DateTime?
+  
+  @@index([parentId])
+  @@index([mentorId])
+  @@index([startTimeUtc])
+  @@index([status])
+  @@index([mentorId, startTimeUtc, status])
+}
+
+model Notification {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type              NotificationType
+  message           String
+  metadata          Json?
+  
+  read              Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  
+  @@index([userId, read])
+}
