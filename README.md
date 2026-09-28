@@ -154,7 +154,7 @@ npm run dev:client
 
 ## 🔗 Important URLs
 
-- **Frontend Web Application**: [http://localhost:5173](http://localhost:5173)
+- **Frontend Web Application**: https://code-spark-book.base44.app
 - **Login Page**: [http://localhost:5173/login](http://localhost:5173/login)
 - **Backend API Server**: [http://localhost:3000](http://localhost:3000)
 - **Backend Health Check**: [http://localhost:3000/health](http://localhost:3000/health)
